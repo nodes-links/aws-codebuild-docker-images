@@ -186,7 +186,7 @@ RUN set -ex \
     && dpkg --add-architecture i386 \
     && apt-get update \
     && apt-get install -y -qq --force-yes libc6-i386 \
-       lib32stdc++6 lib32gcc1 lib32ncurses6 \
+       lib32stdc++6 lib32ncurses6 \
        lib32z1 libqt5widgets5
 
 RUN set -ex \
