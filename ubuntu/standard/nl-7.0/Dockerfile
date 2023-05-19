@@ -308,10 +308,15 @@ RUN npm install -g typescript@4.9.5 \
 # install sudo
 RUN apt-get update && apt-get install -y sudo
 
-# configure bashrc
+# configure bashrc, PATH
 
+ARG MYPATH=":/root/.phpenv/shims:/root/.phpenv/bin:/root/.pyenv/shims:/root/.pyenv/bin:/root/.rbenv/shims"
 RUN echo "alias python='/root/.pyenv/shims/python'" >> ~/.bashrc
 RUN echo "alias pip='/root/.pyenv/shims/pip'" >> ~/.bashrc
+RUN echo "export PATH=${PATH}${MYPATH}" >> /root/.bashrc
+
+
+ENV PATH "$PATH$MYPATH"
 
 
 ENTRYPOINT ["/usr/local/bin/dockerd-entrypoint.sh"]
