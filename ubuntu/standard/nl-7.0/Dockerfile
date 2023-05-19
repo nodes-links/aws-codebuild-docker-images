@@ -123,9 +123,7 @@ RUN  n $NODE_18_VERSION && npm install --save-dev -g -f grunt && npm install --s
 #****************      END NODEJS     ****************************************************
 
 #**************** PYTHON *****************************************************
-ENV PYTHON_311_VERSION="3.11.2"
 ENV PYTHON_37_VERSION="3.7.16"
-# ARG PYTHON_PIP_VERSION=23.0.1
 ARG PYTHON_PIP_VERSION=21.1.2
 
 ENV PYYAML_VERSION=6.0
@@ -139,13 +137,6 @@ RUN set -ex \
     && pip3 install --no-cache-dir --upgrade 'setuptools==57.4.0' wheel aws-sam-cli boto3 pipenv virtualenv --use-feature=2020-resolver
 
 
-#COPY tools/runtime_configs/python/$PYTHON_311_VERSION /root/.pyenv/plugins/python-build/share/python-build/$PYTHON_311_VERSION
-#RUN env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install $PYTHON_311_VERSION && rm -rf /tmp/*
-#RUN pyenv global $PYTHON_311_VERSION
-#RUN set -ex \
-#    && pip3 install --no-cache-dir --upgrade --force-reinstall "pip==$PYTHON_PIP_VERSION" \
-#    && pip3 install --no-cache-dir --upgrade 'setuptools==67.6.0' wheel aws-sam-cli boto3 pipenv virtualenv \
-#    && pip3 install --no-cache-dir --upgrade "PyYAML==$PYYAML_VERSION"
 
 #**************** END PYTHON *****************************************************
 
@@ -157,16 +148,18 @@ FROM runtimes AS runtimes_n_corretto
 ENV JAVA_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
     JDK_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
     JRE_17_HOME="/usr/lib/jvm/java-17-amazon-corretto"
-ARG ANT_VERSION=1.10.13
+ARG ANT_VERSION=1.10.12
 ARG MAVEN_HOME="/opt/maven"
-ARG MAVEN_VERSION=3.9.1
-ARG GRADLE_VERSION=8.0.2
+ARG MAVEN_VERSION=3.8.7
+ARG INSTALLED_GRADLE_VERSIONS="7.6"
+ARG GRADLE_VERSION=7.6
 ARG SBT_VERSION=1.8.2
 ARG GRADLE_PATH="$SRC_DIR/gradle"
-ARG ANT_DOWNLOAD_SHA512="de4ac604629e39a86a306f0541adb3775596909ad92feb8b7de759b1b286417db24f557228737c8b902d6abf722d2ce5bb0c3baa3640cbeec3481e15ab1958c9"
-ARG MAVEN_DOWNLOAD_SHA512="d3be5956712d1c2cf7a6e4c3a2db1841aa971c6097c7a67f59493a5873ccf8c8b889cf988e4e9801390a2b1ae5a0669de07673acb090a083232dbd3faf82f3e3"
-ARG GRADLE_DOWNLOADS_SHA256="47a5bfed9ef814f90f8debcbbb315e8e7c654109acd224595ea39fca95c5d4da 8.0.2"
+ARG ANT_DOWNLOAD_SHA512="2287dc5cfc21043c14e5413f9afb1c87c9f266ec2a9ba2d3bf2285446f6e4ccb59b558bf2e5c57911a05dfa293c7d5c7ad60ac9f744ba11406f4e6f9a27b2403"
+ARG MAVEN_DOWNLOAD_SHA512="21c2be0a180a326353e8f6d12289f74bc7cd53080305f05358936f3a1b6dd4d91203f4cc799e81761cf5c53c5bbe9dcc13bdb27ec8f57ecf21b2f9ceec3c8d27"
+ARG GRADLE_DOWNLOADS_SHA256="312eb12875e1747e05c2f81a4789902d7e4ec5defbd1eefeaccc08acf096505d 7.6"
 ARG SBT_DOWNLOAD_SHA256="1f65344da074dbd66dfefa93c0eff8d319d772e5cad47fcbeb6ae178bbdf4686"
+ENV LOG4J_UNSAFE_VERSIONS="2.11.1 1.2.8"
 
 ARG MAVEN_CONFIG_HOME="/root/.m2"
 
@@ -213,17 +206,20 @@ RUN set -ex \
     && mkdir -p $MAVEN_CONFIG_HOME \
     # Install Gradle
     && mkdir -p $GRADLE_PATH \
-    && wget -q "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-all.zip" -O "$GRADLE_PATH/gradle-$GRADLE_VERSION-all.zip" \
-    && unzip -q "$GRADLE_PATH/gradle-$GRADLE_VERSION-all.zip" -d /usr/local \
-    && echo "$GRADLE_DOWNLOADS_SHA256" | grep "$GRADLE_VERSION" | sed "s|$GRADLE_VERSION|$GRADLE_PATH/gradle-$GRADLE_VERSION-all.zip|" | sha256sum -c - \
-    && rm "$GRADLE_PATH/gradle-$GRADLE_VERSION-all.zip" \
-    && mkdir "/tmp/gradle-$GRADLE_VERSION" \
-    && "/usr/local/gradle-$GRADLE_VERSION/bin/gradle" -p "/tmp/gradle-$GRADLE_VERSION" init \
-    && "/usr/local/gradle-$GRADLE_VERSION/bin/gradle" -p "/tmp/gradle-$GRADLE_VERSION" wrapper \
-    # Android Studio uses the "-all" distribution for it's wrapper script.
-    && perl -pi -e "s/gradle-$GRADLE_VERSION-bin.zip/gradle-$GRADLE_VERSION-all.zip/" "/tmp/gradle-$GRADLE_VERSION/gradle/wrapper/gradle-wrapper.properties" \
-    && "/tmp/gradle-$GRADLE_VERSION/gradlew" -p "/tmp/gradle-$GRADLE_VERSION" init \
-    && rm -rf "/tmp/gradle-$GRADLE_VERSION"  \
+    && for version in $INSTALLED_GRADLE_VERSIONS; do { \
+       wget -q "https://services.gradle.org/distributions/gradle-$version-all.zip" -O "$GRADLE_PATH/gradle-$version-all.zip" \
+       && unzip -q "$GRADLE_PATH/gradle-$version-all.zip" -d /usr/local \
+       && echo "$GRADLE_DOWNLOADS_SHA256" | grep "$version" | sed "s|$version|$GRADLE_PATH/gradle-$version-all.zip|" | sha256sum -c - \
+       && rm "$GRADLE_PATH/gradle-$version-all.zip" \
+       && mkdir "/tmp/gradle-$version" \
+       && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" init \
+       && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" wrapper \
+       # Android Studio uses the "-all" distribution for it's wrapper script.
+       && perl -pi -e "s/gradle-$version-bin.zip/gradle-$version-all.zip/" "/tmp/gradle-$version/gradle/wrapper/gradle-wrapper.properties" \
+       && "/tmp/gradle-$version/gradlew" -p "/tmp/gradle-$version" init \
+       && rm -rf "/tmp/gradle-$version" \
+       && if [ "$version" != "$GRADLE_VERSION" ]; then rm -rf "/usr/local/gradle-$version"; fi; \
+     }; done \
     # Install default GRADLE_VERSION to path
     && ln -s /usr/local/gradle-$GRADLE_VERSION/bin/gradle /usr/bin/gradle \
     && rm -rf $GRADLE_PATH \
@@ -231,7 +227,8 @@ RUN set -ex \
     && curl -fSL "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" -o sbt.tgz \
     && echo "${SBT_DOWNLOAD_SHA256} *sbt.tgz" | sha256sum -c - \
     && tar xzf sbt.tgz -C /usr/local/bin/ \
-    && rm sbt.tgz
+    && rm sbt.tgz \
+    && for version in $LOG4J_UNSAFE_VERSIONS; do find / -name log4j*-$version.jar | xargs rm -f; done
 
 ENV PATH "/usr/local/bin/sbt/bin:$PATH"
 RUN sbt version -Dsbt.rootdir=true
