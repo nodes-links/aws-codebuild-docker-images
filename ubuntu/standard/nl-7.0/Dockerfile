@@ -100,82 +100,18 @@ RUN curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscli
     && aws --version
 
 # Install env tools for runtimes
-# Dotnet
-ENV PATH "/root/.dotnet/:/root/.dotnet/tools/:$PATH"
-RUN set -ex  \
-&& wget -qO /usr/local/bin/dotnet-install.sh https://dot.net/v1/dotnet-install.sh \
-&& chmod +x /usr/local/bin/dotnet-install.sh
-
 #nodejs
 ARG SRC_DIR="/usr/src"
 ARG N_SRC_DIR="$SRC_DIR/n"
 RUN git clone https://github.com/tj/n $N_SRC_DIR \
      && cd $N_SRC_DIR && make install 
 
-#ruby
-ARG RBENV_SRC_DIR="/usr/local/rbenv"
-
-ENV PATH="/root/.rbenv/shims:$RBENV_SRC_DIR/bin:$RBENV_SRC_DIR/shims:$PATH" \
-    RUBY_BUILD_SRC_DIR="$RBENV_SRC_DIR/plugins/ruby-build"
-
-RUN set -ex \
-    && git clone https://github.com/rbenv/rbenv.git $RBENV_SRC_DIR \
-    && mkdir -p $RBENV_SRC_DIR/plugins \
-    && git clone https://github.com/rbenv/ruby-build.git $RUBY_BUILD_SRC_DIR \
-    && sh $RUBY_BUILD_SRC_DIR/install.sh
-
 #python
 RUN curl https://pyenv.run | bash
 ENV PATH="/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
 
-#php
-RUN curl -L https://raw.githubusercontent.com/phpenv/phpenv-installer/master/bin/phpenv-installer | bash
-ENV PATH="/root/.phpenv/shims:/root/.phpenv/bin:$PATH"
-
-#go
-RUN git clone https://github.com/syndbg/goenv.git $HOME/.goenv
-ENV PATH="/root/.goenv/shims:/root/.goenv/bin:/go/bin:$PATH"
-ENV GOENV_DISABLE_GOPATH=1
-ENV GOPATH="/go"
-
 #=======================End of layer: tools  =================
 FROM tools AS runtimes
-
-#****************     .NET-CORE     *******************************************************
-
-ENV DOTNET_6_SDK_VERSION="6.0.407"
-ENV DOTNET_ROOT="/root/.dotnet"
-
-# Add .NET Core 6 Global Tools install folder to PATH
-RUN  /usr/local/bin/dotnet-install.sh -v $DOTNET_6_SDK_VERSION \
-     && dotnet --list-sdks \
-     && rm -rf /tmp/*
-
-# Trigger the population of the local package cache
-ENV NUGET_XMLDOC_MODE skip
-RUN set -ex \
-    && mkdir warmup \
-    && cd warmup \
-    && dotnet new \
-    && cd .. \
-    && rm -rf warmup \
-    && rm -rf /tmp/NuGetScratch
-
-# Install Powershell Core
-# See instructions at https://docs.microsoft.com/en-us/powershell/scripting/setup/installing-powershell-core-on-linux
-ARG POWERSHELL_VERSION=7.3.3
-ARG POWERSHELL_DOWNLOAD_URL=https://github.com/PowerShell/PowerShell/releases/download/v$POWERSHELL_VERSION/powershell-$POWERSHELL_VERSION-linux-x64.tar.gz
-ARG POWERSHELL_DOWNLOAD_SHA=478320F62C9BEC5765414B82B4086310777BF95AB2FC2310B2DB6CBC253B40B4
-
-RUN set -ex \
-    && curl -SL $POWERSHELL_DOWNLOAD_URL --output powershell.tar.gz \
-    && echo "$POWERSHELL_DOWNLOAD_SHA powershell.tar.gz" | sha256sum -c - \
-    && mkdir -p /opt/microsoft/powershell/$POWERSHELL_VERSION \
-    && tar zxf powershell.tar.gz -C /opt/microsoft/powershell/$POWERSHELL_VERSION \
-    && rm powershell.tar.gz \
-    && ln -s /opt/microsoft/powershell/$POWERSHELL_VERSION/pwsh /usr/bin/pwsh
-#****************     END .NET-CORE     *******************************************************
-
 
 #****************      NODEJS     ****************************************************
 
@@ -185,15 +121,6 @@ RUN  n $NODE_18_VERSION && npm install --save-dev -g -f grunt && npm install --s
      && cd / && rm -rf $N_SRC_DIR && rm -rf /tmp/*
 
 #****************      END NODEJS     ****************************************************
-
-#**************** RUBY *********************************************************
-
-ENV RUBY_32_VERSION="3.2.1"
-
-RUN rbenv install $RUBY_32_VERSION && rm -rf /tmp/* \
-    && rbenv global $RUBY_32_VERSION && ruby -v
-
-#**************** END RUBY *****************************************************
 
 #**************** PYTHON *****************************************************
 ENV PYTHON_311_VERSION="3.11.2"
@@ -221,26 +148,6 @@ RUN set -ex \
 #    && pip3 install --no-cache-dir --upgrade "PyYAML==$PYYAML_VERSION"
 
 #**************** END PYTHON *****************************************************
-
-#****************      PHP     ****************************************************
-ENV PHP_82_VERSION="8.2.4"
-
-COPY tools/runtime_configs/php/$PHP_82_VERSION /root/.phpenv/plugins/php-build/share/php-build/definitions/$PHP_82_VERSION
-RUN phpenv install $PHP_82_VERSION && rm -rf /tmp/* && phpenv global $PHP_82_VERSION
-RUN echo "memory_limit = 1G;" >> "/root/.phpenv/versions/$PHP_82_VERSION/etc/conf.d/memory.ini"
-
-# Install Composer globally
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
-#****************      END PHP     ****************************************************
-
-#****************     GOLANG     ****************************************************
-ENV GOLANG_20_VERSION="1.20.2"
-
-RUN goenv install $GOLANG_20_VERSION && rm -rf /tmp/* && \
-    goenv global  $GOLANG_20_VERSION && \
-    go env -w GO111MODULE=auto
-
-#****************      END GOLANG     *******************************
 
 #=======================End of layer: runtimes  =================
 
@@ -370,9 +277,7 @@ FROM runtimes_n_corretto AS std_v7
 # Activate runtime versions specific to image version.
 RUN n $NODE_18_VERSION
 RUN pyenv global $PYTHON_37_VERSION
-RUN phpenv global $PHP_82_VERSION
-RUN rbenv global $RUBY_32_VERSION
-RUN goenv global $GOLANG_20_VERSION
+
 
 # Configure SSH
 COPY ssh_config /root/.ssh/config
