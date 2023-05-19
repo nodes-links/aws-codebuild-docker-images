@@ -310,7 +310,7 @@ RUN apt-get update && apt-get install -y sudo
 
 # configure bashrc, PATH
 
-ARG MYPATH=":/root/.phpenv/shims:/root/.phpenv/bin:/root/.pyenv/shims:/root/.pyenv/bin:/root/.rbenv/shims"
+ARG MYPATH=":/root/.pyenv/shims:/root/.pyenv/bin"
 RUN echo "alias python='/root/.pyenv/shims/python'" >> ~/.bashrc
 RUN echo "alias pip='/root/.pyenv/shims/pip'" >> ~/.bashrc
 RUN echo "export PATH=${PATH}${MYPATH}" >> /root/.bashrc
