@@ -145,43 +145,54 @@ RUN set -ex \
 FROM runtimes AS runtimes_n_corretto
 
 #****************      JAVA     ****************************************************
-ENV JAVA_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
-    JDK_17_HOME="/usr/lib/jvm/java-17-amazon-corretto" \
-    JRE_17_HOME="/usr/lib/jvm/java-17-amazon-corretto"
+ENV JAVA_11_HOME="/usr/lib/jvm/java-11-amazon-corretto"
+ENV JDK_11_HOME="/usr/lib/jvm/java-11-amazon-corretto"
+ENV JRE_11_HOME="/usr/lib/jvm/java-11-amazon-corretto"
+ENV JAVA_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto"
+ENV JDK_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto"
+ENV JRE_8_HOME="/usr/lib/jvm/java-1.8.0-amazon-corretto/jre"
 ARG ANT_VERSION=1.10.12
 ARG MAVEN_HOME="/opt/maven"
-ARG MAVEN_VERSION=3.8.7
-ARG INSTALLED_GRADLE_VERSIONS="7.6"
-ARG GRADLE_VERSION=7.6
-ARG SBT_VERSION=1.8.2
+ARG MAVEN_VERSION=3.6.3
+ARG INSTALLED_GRADLE_VERSIONS="5.6.4 6.7.1"
+ARG GRADLE_VERSION=5.6.4
+ARG SBT_VERSION=1.6.2
 ARG GRADLE_PATH="$SRC_DIR/gradle"
 ARG ANT_DOWNLOAD_SHA512="2287dc5cfc21043c14e5413f9afb1c87c9f266ec2a9ba2d3bf2285446f6e4ccb59b558bf2e5c57911a05dfa293c7d5c7ad60ac9f744ba11406f4e6f9a27b2403"
-ARG MAVEN_DOWNLOAD_SHA512="21c2be0a180a326353e8f6d12289f74bc7cd53080305f05358936f3a1b6dd4d91203f4cc799e81761cf5c53c5bbe9dcc13bdb27ec8f57ecf21b2f9ceec3c8d27"
-ARG GRADLE_DOWNLOADS_SHA256="312eb12875e1747e05c2f81a4789902d7e4ec5defbd1eefeaccc08acf096505d 7.6"
-ARG SBT_DOWNLOAD_SHA256="1f65344da074dbd66dfefa93c0eff8d319d772e5cad47fcbeb6ae178bbdf4686"
+ARG MAVEN_DOWNLOAD_SHA512="c35a1803a6e70a126e80b2b3ae33eed961f83ed74d18fcd16909b2d44d7dada3203f1ffe726c17ef8dcca2dcaa9fca676987befeadc9b9f759967a8cb77181c0"
+ARG GRADLE_DOWNLOADS_SHA256="abc10bcedb58806e8654210f96031db541bcd2d6fc3161e81cb0572d6a15e821 5.6.4\n22449f5231796abd892c98b2a07c9ceebe4688d192cd2d6763f8e3bf8acbedeb 6.7.1"
+ARG SBT_DOWNLOAD_SHA256="637637b6c4e6fa04ab62cd364061e32b12480b09001cd23303df62b36fadd440"
 ENV LOG4J_UNSAFE_VERSIONS="2.11.1 1.2.8"
 
 ARG MAVEN_CONFIG_HOME="/root/.m2"
 
-ENV JAVA_HOME="$JAVA_17_HOME" \
-    JDK_HOME="$JDK_17_HOME" \
-    JRE_HOME="$JRE_17_HOME"
+ENV JAVA_HOME="$JAVA_11_HOME" \
+    JDK_HOME="$JDK_11_HOME" \
+    JRE_HOME="$JRE_11_HOME"
 
 ENV PATH="${PATH}:/opt/tools"
 
 RUN set -ex \
     && apt-get update \
     && apt-get install -y -qq software-properties-common apt-utils \
-    # Install Corretto 17
+    # Install Corretto 8
     && wget -qO- https://apt.corretto.aws/corretto.key | apt-key add - \
     && add-apt-repository 'deb https://apt.corretto.aws stable main' \
     && apt-get update \
-    && apt-get install -y -qq java-17-amazon-corretto-jdk \
+    && apt-get install -y -qq java-1.8.0-amazon-corretto-jdk \
     && apt-get install -y -qq --no-install-recommends ca-certificates-java \
     # Ensure Java cacerts symlink points to valid location
     && update-ca-certificates -f \
     && dpkg --add-architecture i386 \
     && apt-get update \
+    && apt-get install -y -qq --force-yes libc6-i386 \
+       lib32stdc++6 lib32gcc1 lib32ncurses6 \
+       lib32z1 libqt5widgets5
+
+RUN set -ex \
+    # Install Corretto 11
+    # Note: We will use update-alternatives to make sure JDK11 has higher priority for all the tools
+    && apt-get install -y -qq java-11-amazon-corretto-jdk \
     && for tool_path in $JAVA_HOME/bin/*; do \
           tool=`basename $tool_path`; \
           update-alternatives --install /usr/bin/$tool $tool $tool_path 10000; \
@@ -212,7 +223,6 @@ RUN set -ex \
        && echo "$GRADLE_DOWNLOADS_SHA256" | grep "$version" | sed "s|$version|$GRADLE_PATH/gradle-$version-all.zip|" | sha256sum -c - \
        && rm "$GRADLE_PATH/gradle-$version-all.zip" \
        && mkdir "/tmp/gradle-$version" \
-       && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" init \
        && "/usr/local/gradle-$version/bin/gradle" -p "/tmp/gradle-$version" wrapper \
        # Android Studio uses the "-all" distribution for it's wrapper script.
        && perl -pi -e "s/gradle-$version-bin.zip/gradle-$version-all.zip/" "/tmp/gradle-$version/gradle/wrapper/gradle-wrapper.properties" \
@@ -294,6 +304,14 @@ RUN npm install -g typescript@4.9.5 \
                    s3p@3.3.2 --force
 
 #*********************** NL dependencies  ****************************
+
+
+
+# configure bashrc
+
+RUN echo "alias python='/root/.pyenv/shims/python'" >> ~/.bashrc
+RUN echo "alias pip='/root/.pyenv/shims/pip'" >> ~/.bashrc
+
 
 ENTRYPOINT ["/usr/local/bin/dockerd-entrypoint.sh"]
 
