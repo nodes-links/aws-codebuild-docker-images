@@ -305,7 +305,8 @@ RUN npm install -g typescript@4.9.5 \
 
 #*********************** NL dependencies  ****************************
 
-
+# install sudo
+RUN apt-get update && apt-get install -y sudo
 
 # configure bashrc
 
